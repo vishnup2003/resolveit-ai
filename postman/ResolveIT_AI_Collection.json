@@ -1,0 +1,82 @@
+{
+  "info": {
+    "name": "ResolveIT AI - Smart IT Service Desk API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080/api" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Auth - Register User",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"name\": \"Vishnu Pathak\",\n  \"email\": \"vishnu@resolveit.com\",\n  \"password\": \"secret123\",\n  \"role\": \"EMPLOYEE\",\n  \"department\": \"Engineering\"\n}"
+        }
+      }
+    },
+    {
+      "name": "2. Auth - Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"vishnu@resolveit.com\",\n  \"password\": \"secret123\"\n}"
+        }
+      }
+    },
+    {
+      "name": "3. Tickets - Create with AI Triage",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/tickets",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Production MySQL Connection Refused\",\n  \"description\": \"Checkout service failing with 500 error.\",\n  \"errorLog\": \"CommunicationsException: Communications link failure on port 3306\"\n}"
+        }
+      }
+    },
+    {
+      "name": "4. Tickets - Get My Tickets",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/tickets/my"
+      }
+    },
+    {
+      "name": "5. Tickets - Update Status (Engineer/Admin)",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": "{{baseUrl}}/tickets/1/status",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"status\": \"RESOLVED\"\n}"
+        }
+      }
+    },
+    {
+      "name": "6. Admin - Get All Tickets",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/admin/tickets"
+      }
+    }
+  ]
+}
