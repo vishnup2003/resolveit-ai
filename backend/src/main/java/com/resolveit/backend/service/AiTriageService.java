@@ -8,13 +8,13 @@ import com.resolveit.backend.enums.TicketPriority;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
@@ -23,29 +23,35 @@ import java.util.Map;
 @Slf4j
 public class AiTriageService {
 
-    @Value("${ai.gemini.api-key:}")
+    @Value("${GEMINI_API_KEY:${ai.gemini.api-key:}}")
     private String geminiApiKey;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
 
     public AiInsight analyzeTicket(Ticket ticket) {
         if (geminiApiKey != null && !geminiApiKey.isBlank()) {
             try {
+                log.info("Calling Gemini AI for ticket: {}", ticket.getTitle());
                 return callGeminiApi(ticket);
             } catch (Exception e) {
-                log.warn("Gemini API call failed, switching to smart rule-based triage: {}", e.getMessage());
+                log.error("Gemini API call failed, switching to smart rule-based triage: {}", e.getMessage());
             }
+        } else {
+            log.warn("GEMINI_API_KEY is missing/empty; using rule-based triage.");
         }
         return runSmartFallbackTriage(ticket);
     }
 
     private AiInsight callGeminiApi(Ticket ticket) throws Exception {
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + geminiApiKey;
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + geminiApiKey.trim();
 
         String prompt = """
                 You are an expert L2/L3 IT Service Desk Triage AI. Analyze this support ticket and respond ONLY with valid raw JSON (no markdown, no backticks) with exact keys:
                 {"category": "Network|Software|Hardware|Database|Access", "priority": "LOW|MEDIUM|HIGH|CRITICAL", "rootCause": "...", "steps": "1. ...\\n2. ...\\n3. ..."}
-                
+
                 Title: %s
                 Description: %s
                 Error Log: %s
@@ -64,18 +70,22 @@ public class AiTriageService {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .header("Content-Type", "application/json")
+                .timeout(Duration.ofSeconds(20))
                 .POST(HttpRequest.BodyPublishers.ofString(jsonPayload))
                 .build();
 
-        HttpClient client = HttpClient.newHttpClient();
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != 200) {
+            throw new RuntimeException("Gemini HTTP " + response.statusCode() + ": " + response.body());
+        }
 
         JsonNode root = objectMapper.readTree(response.body());
         String rawText = root.path("candidates").get(0)
                 .path("content").path("parts").get(0)
                 .path("text").asText().trim();
 
-        rawText = rawText.replaceAll("^```json\\s*", "").replaceAll("\\s*```$", "").trim();
+        rawText = rawText.replaceAll("^```json\\s*", "").replaceAll("^```\\s*", "").replaceAll("\\s*```$", "").trim();
         JsonNode aiJson = objectMapper.readTree(rawText);
 
         String category = aiJson.path("category").asText("Software");
@@ -99,20 +109,23 @@ public class AiTriageService {
         String rootCause;
         String steps;
 
-        if (combined.contains("vpn") || combined.contains("wifi") || combined.contains("network") || combined.contains("timeout") || combined.contains("dns")) {
+        if (combined.contains("internet") || combined.contains("wifi") || combined.contains("vpn")
+                || combined.contains("network") || combined.contains("timeout") || combined.contains("dns")
+                || combined.contains("ethernet") || combined.contains("lan") || combined.contains("offline")
+                || combined.contains("router")) {
             category = "Network";
             priority = combined.contains("production") || combined.contains("outage") ? TicketPriority.CRITICAL : TicketPriority.HIGH;
-            rootCause = "Connectivity bottleneck, DNS resolution failure, or VPN gateway session drop detected.";
-            steps = "1. Verify VPN client certificate and gateway endpoint.\n2. Flush local DNS cache (ipconfig /flushdns) and test ping.\n3. Check firewall rules on ports 443/1194.";
+            rootCause = "Connectivity bottleneck, DNS resolution failure, or gateway/ISP session drop detected.";
+            steps = "1. Check physical LAN/Wi-Fi adapter status and gateway ping.\n2. Flush local DNS cache (ipconfig /flushdns) and test external DNS (8.8.8.8).\n3. Verify VPN/proxy settings and firewall rules on ports 80/443.";
         } else if (combined.contains("database") || combined.contains("mysql") || combined.contains("sql") || combined.contains("connection refused") || combined.contains("deadlock")) {
             category = "Database";
             priority = TicketPriority.CRITICAL;
             rootCause = "Database connection pool exhaustion, service downtime, or credential/port mismatch on MySQL instance.";
-            steps = "1. Confirm MySQL daemon status and port 3306 listener.\n2. Inspect HikariCP active connection pool metrics.\n3. Verify datasource credentials and restart service if hung.";
+            steps = "1. Confirm MySQL daemon status and port listener.\n2. Inspect HikariCP active connection pool metrics.\n3. Verify datasource credentials and restart service if hung.";
         } else if (combined.contains("access") || combined.contains("login") || combined.contains("401") || combined.contains("403") || combined.contains("permission") || combined.contains("password")) {
             category = "Access";
             priority = TicketPriority.HIGH;
-            rootCause = "Expired authentication token, missing RBAC role mapping, or locked Active Directory account.";
+            rootCause = "Expired authentication token, missing RBAC role mapping, or locked directory account.";
             steps = "1. Verify user role assignment in IAM directory.\n2. Clear stale session tokens and trigger password/MFA reset.\n3. Re-test endpoint authorization headers.";
         } else if (combined.contains("laptop") || combined.contains("screen") || combined.contains("battery") || combined.contains("keyboard") || combined.contains("hardware")) {
             category = "Hardware";
