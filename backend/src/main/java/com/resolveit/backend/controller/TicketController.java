@@ -23,7 +23,8 @@ public class TicketController {
     private final TicketService ticketService;
 
     @PostMapping
-    @Operation(summary = "Create a new support ticket (triggers AI Triage + Auto-Assignment + SLA)")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    @Operation(summary = "Create a new support ticket (Employees only)")
     public ResponseEntity<TicketResponse> createTicket(
             @Valid @RequestBody CreateTicketRequest request,
             Authentication authentication) {
@@ -32,35 +33,42 @@ public class TicketController {
     }
 
     @GetMapping("/my")
-    @Operation(summary = "Get all tickets created by the logged-in employee")
     public ResponseEntity<List<TicketResponse>> getMyTickets(Authentication authentication) {
         return ResponseEntity.ok(ticketService.getMyCreatedTickets(authentication.getName()));
     }
 
     @GetMapping("/assigned")
     @PreAuthorize("hasAnyRole('ENGINEER', 'ADMIN')")
-    @Operation(summary = "Get tickets assigned to the logged-in engineer")
     public ResponseEntity<List<TicketResponse>> getAssignedTickets(Authentication authentication) {
         return ResponseEntity.ok(ticketService.getAssignedTickets(authentication.getName()));
     }
 
     @GetMapping("/{id}")
-    @Operation(summary = "Get single ticket details along with AI Insights")
     public ResponseEntity<TicketResponse> getTicketById(@PathVariable Long id) {
         return ResponseEntity.ok(ticketService.getTicketById(id));
     }
 
     @PatchMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ENGINEER', 'ADMIN')")
-    @Operation(summary = "Update ticket status (OPEN, IN_PROGRESS, RESOLVED, ESCALATED)")
     public ResponseEntity<TicketResponse> updateStatus(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateTicketStatusRequest request) {
-        return ResponseEntity.ok(ticketService.updateTicketStatus(id, request.status()));
+            @Valid @RequestBody UpdateTicketStatusRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(
+                ticketService.updateTicketStatus(id, request.status(), request.resolutionNote(), authentication.getName())
+        );
+    }
+
+    @PatchMapping("/{id}/reopen")
+    @PreAuthorize("hasRole('EMPLOYEE')")
+    public ResponseEntity<TicketResponse> reopenTicket(
+            @PathVariable Long id,
+            @Valid @RequestBody ReopenTicketRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(ticketService.reopenTicket(id, request.reason(), authentication.getName()));
     }
 
     @PostMapping("/{id}/comments")
-    @Operation(summary = "Add a comment to a ticket")
     public ResponseEntity<CommentResponse> addComment(
             @PathVariable Long id,
             @Valid @RequestBody CommentRequest request,
@@ -70,7 +78,6 @@ public class TicketController {
     }
 
     @GetMapping("/{id}/comments")
-    @Operation(summary = "Get all comments for a ticket")
     public ResponseEntity<List<CommentResponse>> getComments(@PathVariable Long id) {
         return ResponseEntity.ok(ticketService.getComments(id));
     }

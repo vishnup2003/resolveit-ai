@@ -1,4 +1,4 @@
-// File 2: TicketResponse.java
+// File: backend/src/main/java/com/resolveit/backend/dto/TicketResponse.java
 package com.resolveit.backend.dto;
 
 import com.resolveit.backend.enums.TicketPriority;
@@ -15,6 +15,9 @@ public record TicketResponse(
         TicketPriority priority,
         TicketStatus status,
         LocalDateTime slaDeadline,
+        String resolutionNote,
+        LocalDateTime resolvedAt,
+        String reopenReason,
         String createdByName,
         String createdByEmail,
         String assignedToName,

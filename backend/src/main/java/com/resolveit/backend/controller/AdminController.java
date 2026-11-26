@@ -52,4 +52,11 @@ public class AdminController {
             @PathVariable Long engineerId) {
         return ResponseEntity.ok(ticketService.reassignTicket(ticketId, engineerId));
     }
+
+    @PatchMapping("/tickets/{id}/priority")
+    public ResponseEntity<TicketResponse> updatePriority(
+            @PathVariable Long id,
+            @RequestParam com.resolveit.backend.enums.TicketPriority priority) {
+        return ResponseEntity.ok(ticketService.updateTicketPriority(id, priority));
+    }
 }

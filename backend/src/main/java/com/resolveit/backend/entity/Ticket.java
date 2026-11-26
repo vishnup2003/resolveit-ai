@@ -23,7 +23,7 @@ public class Ticket {
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private String ticketNumber; // Jaise: RIT-1001
+    private String ticketNumber;
 
     @Column(nullable = false)
     private String title;
@@ -32,10 +32,10 @@ public class Ticket {
     private String description;
 
     @Column(columnDefinition = "TEXT")
-    private String errorLog; // Optional stack trace jo user paste karega
+    private String errorLog;
 
     @Column(nullable = false)
-    private String category; // Network, Software, Hardware, Access
+    private String category;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -47,17 +47,22 @@ public class Ticket {
 
     private LocalDateTime slaDeadline;
 
-    // Kis employee ne ticket banaya (Many tickets -> One User)
+    @Column(columnDefinition = "TEXT")
+    private String resolutionNote;
+
+    private LocalDateTime resolvedAt;
+
+    @Column(columnDefinition = "TEXT")
+    private String reopenReason;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by_id", nullable = false)
     private User createdBy;
 
-    // Kis engineer ko assign hua (Many tickets -> One Engineer)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assigned_to_id")
     private User assignedTo;
 
-    // Ticket ke saath juda AI analysis (One-to-One)
     @OneToOne(mappedBy = "ticket", cascade = CascadeType.ALL, orphanRemoval = true)
     private AiInsight aiInsight;
 

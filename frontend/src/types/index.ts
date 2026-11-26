@@ -1,19 +1,19 @@
 export type Role = 'EMPLOYEE' | 'ENGINEER' | 'ADMIN';
+
 export type TicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+
 export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'ESCALATED';
 
 export interface AuthResponse {
   token: string;
-  userId: number;
   name: string;
   email: string;
   role: Role;
-  department: string;
 }
 
 export interface AiInsight {
   suggestedCategory: string;
-  suggestedPriority: TicketPriority;
+  suggestedPriority: string;
   rootCauseSummary: string;
   recommendedSteps: string;
   generatedAt: string;
@@ -29,6 +29,9 @@ export interface Ticket {
   priority: TicketPriority;
   status: TicketStatus;
   slaDeadline: string;
+  resolutionNote?: string;
+  resolvedAt?: string;
+  reopenReason?: string;
   createdByName: string;
   createdByEmail: string;
   assignedToName: string;
@@ -51,4 +54,14 @@ export interface EngineerSummary {
   name: string;
   email: string;
   department: string;
+}
+
+export interface AppNotification {
+  id: number;
+  title: string;
+  message: string;
+  ticketId?: number;
+  ticketNumber?: string;
+  isRead: boolean;
+  createdAt: string;
 }
