@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bot, ShieldCheck, Sparkles } from 'lucide-react';
 import axiosClient from '../api/axiosClient';
@@ -14,9 +14,26 @@ export default function AuthPage() {
   const [department, setDepartment] = useState('Engineering');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isWakingUp, setIsWakingUp] = useState(false);
 
   const { loginUser } = useAuth();
   const navigate = useNavigate();
+
+  // Pre-warm Render backend container silently when AuthPage mounts
+  useEffect(() => {
+    const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8080/api').replace(/\/api\/?$/, '');
+    fetch(`${baseUrl}/v3/api-docs`, { mode: 'no-cors' }).catch(() => {});
+  }, []);
+
+  // Show cold-start indicator if authentication takes more than 4 seconds
+  useEffect(() => {
+    if (!loading) {
+      setIsWakingUp(false);
+      return;
+    }
+    const timer = setTimeout(() => setIsWakingUp(true), 4000);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,7 +165,7 @@ export default function AuthPage() {
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
                   placeholder="IT / DevOps"
-                  className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
+                  className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-lg text-sm focus:outline-none focus:border-indigo-500"
                 />
               </div>
             </div>
@@ -160,7 +177,13 @@ export default function AuthPage() {
             className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-medium rounded-lg text-sm transition flex items-center justify-center gap-2 mt-2"
           >
             <ShieldCheck className="w-4 h-4" />
-            {loading ? 'Authenticating...' : isLogin ? 'Sign In to Workspace' : 'Register & Continue'}
+            {loading
+              ? isWakingUp
+                ? 'Waking up cloud server (~30s)...'
+                : 'Authenticating...'
+              : isLogin
+              ? 'Sign In to Workspace'
+              : 'Register & Continue'}
           </button>
         </form>
       </div>
